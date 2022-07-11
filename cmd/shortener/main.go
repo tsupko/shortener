@@ -1,41 +1,40 @@
 package main
 
 import (
-	"encoding/json"
 	"github.com/gorilla/mux"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
 )
 
-type URL struct {
-	Value string `json:"url"`
-}
+const (
+	slash         = "/"
+	doubleSlashes = "//"
+)
 
-const LettersToKeep = 5 // length of `://` plus the number of URL letters to keep in a shortened URL
+var idToOriginalURL = map[string]string{"id": "https://yandex.ru/id"}
 
-var idToOriginalURL = map[string]URL{"1": {"https://yandex.ru"}} // map for storing pairs of `id` -> `original URL`
-
-func handleURLWithoutPathParameter(w http.ResponseWriter, r *http.Request) {
+// HandleURLWithoutPathParameter handles POST requests without path parameters, i.e. `POST /`,
+// and does not support other HTTP methods
+func HandleURLWithoutPathParameter(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
-		body := r.Body
-		defer func(body io.ReadCloser) {
-			err := body.Close()
+		defer func(Body io.ReadCloser) {
+			err := Body.Close()
 			if err != nil {
 				log.Fatal(err)
 			}
-		}(body)
-		content, _ := ioutil.ReadAll(body)
-		uri := &URL{}
-		err := json.Unmarshal(content, uri)
+		}(r.Body)
+		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			log.Fatal(err)
 		}
+		var originalURL = body
+		shortenedURL := shorten(originalURL)
+		idToOriginalURL[string(shortenedURL)] = string(originalURL)
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(http.StatusCreated) // 201
-		_, err = w.Write(shorten(uri))
+		w.WriteHeader(http.StatusCreated)
+		_, err = w.Write(shortenedURL)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -44,21 +43,18 @@ func handleURLWithoutPathParameter(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func shorten(uri *URL) []byte {
-	trimUpToIndex := strings.Index(uri.Value, "://") + LettersToKeep
-	dotIndex := strings.LastIndex(uri.Value, ".")
-	u := []byte(uri.Value)
-	return append(u[:trimUpToIndex], u[dotIndex:]...)
-}
-
-func handleURLWithPathParameter(w http.ResponseWriter, r *http.Request) {
+// HandleURLWithPathParameter handles GET requests with a path parameter `id`, i.e. `GET /{id}`,
+// and does not support other HTTP methods
+func HandleURLWithPathParameter(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		path := r.URL.Path
-		slashIndex := strings.Index(path, "/")
-		id := path[slashIndex+1:]
+		slashIndex := strings.Index(path, slash)
+		id := path[slashIndex+len(slash):]
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("Location", idToOriginalURL[id].Value)
-		w.WriteHeader(http.StatusTemporaryRedirect) // 307
+		if originalURL, ok := idToOriginalURL[id]; ok {
+			w.Header().Set("Location", originalURL)
+		}
+		w.WriteHeader(http.StatusTemporaryRedirect)
 	} else {
 		http.Error(w, "Requests other than GET are not allowed to `/{id}`", http.StatusBadRequest)
 	}
@@ -71,7 +67,16 @@ func main() {
 
 func registerEndpoints() {
 	router := mux.NewRouter()
-	router.HandleFunc("/", handleURLWithoutPathParameter)
-	router.HandleFunc("/{id}", handleURLWithPathParameter)
+	router.HandleFunc("/", HandleURLWithoutPathParameter)
+	router.HandleFunc("/{id}", HandleURLWithPathParameter)
 	http.Handle("/", router)
+}
+
+func shorten(url []byte) []byte {
+	stringURL := string(url)
+	doubleSlashesIndex := strings.Index(stringURL, doubleSlashes)
+	sliceURLWithoutProtocol := url[doubleSlashesIndex+len(doubleSlashes):]
+	slashIndex := strings.Index(string(sliceURLWithoutProtocol), slash)
+	sliceURLWithoutHostPort := sliceURLWithoutProtocol[slashIndex+len(slash):]
+	return sliceURLWithoutHostPort
 }
