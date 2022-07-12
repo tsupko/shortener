@@ -1,82 +1,86 @@
 package main
 
 import (
-	"github.com/gorilla/mux"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"strings"
+
+	"github.com/gorilla/mux"
 )
 
-const (
-	slash         = "/"
-	doubleSlashes = "//"
-)
+type MyMap struct {
+	idToOriginalURL map[string]string
+}
 
-var idToOriginalURL = map[string]string{"id": "https://yandex.ru/id"}
-
-// HandleURLWithoutPathParameter handles POST requests without path parameters, i.e. `POST /`,
+// HandlePostRequest handles POST requests without path parameters, i.e. `POST /`,
 // and does not support other HTTP methods
-func HandleURLWithoutPathParameter(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost {
-		defer func(Body io.ReadCloser) {
-			err := Body.Close()
-			if err != nil {
-				log.Fatal(err)
-			}
-		}(r.Body)
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-		var originalURL = body
-		shortenedURL := shorten(originalURL)
-		idToOriginalURL[string(shortenedURL)] = string(originalURL)
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(http.StatusCreated)
-		_, err = w.Write(shortenedURL)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		http.Error(w, "Requests other than POST are not allowed to `/`", http.StatusBadRequest)
+func (myMap *MyMap) HandlePostRequest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Requests other than POST are not allowed to `/`", http.StatusMethodNotAllowed)
+		return
+	}
+	defer func() {
+		_ = r.Body.Close()
+	}()
+	originalURL, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Error while reading request body: %v\n", err)
+	}
+	id := GenerateUniqueID(myMap)
+	myMap.idToOriginalURL[string(id)] = string(originalURL)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusCreated)
+	_, err = w.Write(append([]byte("http://localhost:8080/"), id...))
+	if err != nil {
+		log.Printf("Error while writing response body: %v\n", err)
 	}
 }
 
-// HandleURLWithPathParameter handles GET requests with a path parameter `id`, i.e. `GET /{id}`,
+// HandleGetRequest handles GET requests with a path parameter `id`, i.e. `GET /{id}`,
 // and does not support other HTTP methods
-func HandleURLWithPathParameter(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
-		path := r.URL.Path
-		slashIndex := strings.Index(path, slash)
-		id := path[slashIndex+len(slash):]
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		if originalURL, ok := idToOriginalURL[id]; ok {
-			w.Header().Set("Location", originalURL)
-		}
-		w.WriteHeader(http.StatusTemporaryRedirect)
-	} else {
-		http.Error(w, "Requests other than GET are not allowed to `/{id}`", http.StatusBadRequest)
+func (myMap *MyMap) HandleGetRequest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Requests other than GET are not allowed to `/{id}`", http.StatusMethodNotAllowed)
+		return
 	}
+	id := strings.TrimLeft(r.URL.Path, "/")
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	if originalURL, ok := myMap.idToOriginalURL[id]; ok {
+		w.Header().Set("Location", originalURL)
+	}
+	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
 func main() {
 	registerEndpoints()
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatalln(http.ListenAndServe(":8080", nil))
 }
 
 func registerEndpoints() {
 	router := mux.NewRouter()
-	router.HandleFunc("/", HandleURLWithoutPathParameter)
-	router.HandleFunc("/{id}", HandleURLWithPathParameter)
+	dict := &MyMap{make(map[string]string)}
+	router.HandleFunc("/", dict.HandlePostRequest)
+	router.HandleFunc("/{id}", dict.HandleGetRequest)
 	http.Handle("/", router)
 }
 
-func shorten(url []byte) []byte {
-	stringURL := string(url)
-	doubleSlashesIndex := strings.Index(stringURL, doubleSlashes)
-	sliceURLWithoutProtocol := url[doubleSlashesIndex+len(doubleSlashes):]
-	slashIndex := strings.Index(string(sliceURLWithoutProtocol), slash)
-	sliceURLWithoutHostPort := sliceURLWithoutProtocol[slashIndex+len(slash):]
-	return sliceURLWithoutHostPort
+const (
+	alphabet       = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	alphabetLength = len(alphabet)
+	shortURLLength = 8
+)
+
+func GenerateUniqueID(myMap *MyMap) []byte {
+	id := make([]byte, 0, shortURLLength)
+generateRandomSequence:
+	for i := 0; i < shortURLLength; i++ {
+		randomSymbol := alphabet[rand.Intn(alphabetLength)]
+		id = append(id, randomSymbol)
+	}
+	if _, ok := myMap.idToOriginalURL[string(id)]; ok {
+		goto generateRandomSequence
+	}
+	return id
 }
