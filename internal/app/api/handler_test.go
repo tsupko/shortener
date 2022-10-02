@@ -79,6 +79,22 @@ func TestHandlers(t *testing.T) {
 				body: "http://localhost:8080/12345",
 			},
 		},
+		{
+			name: "POST url",
+			request: request{
+				method: http.MethodPost,
+				path:   "/api/shorten",
+				body:   `{"url":"https://ya.ru"}`,
+			},
+			want: want{
+				statusCode: 201,
+				headers: map[string][]string{
+					"Content-Type": {"application/json"},
+					"Location":     {""},
+				},
+				body: `{"result":"http://localhost:8080/12345"}`,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -89,7 +105,13 @@ func TestHandlers(t *testing.T) {
 			case http.MethodGet:
 				h.handleGetRequest(w, request)
 			case http.MethodPost:
-				h.handlePostRequest(w, request)
+				if tt.request.path == "/" {
+					h.handlePostRequest(w, request)
+				} else if tt.request.path == "/api/shorten" {
+					h.handleJSONPost(w, request)
+				} else {
+					panic("unexpected path:" + tt.request.path)
+				}
 			}
 
 			result := w.Result()

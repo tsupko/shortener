@@ -16,6 +16,9 @@ func NewRouter(m *RequestHandler) chi.Router {
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
 			m.handlePostRequest(w, r)
 		})
+		r.Post("/api/shorten", func(w http.ResponseWriter, r *http.Request) {
+			m.handleJSONPost(w, r)
+		})
 	})
 	return r
 }

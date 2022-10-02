@@ -1,6 +1,9 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -11,11 +14,13 @@ import (
 )
 
 type RequestHandler struct {
-	storage service.ShorteningService
+	service service.ShorteningService
 }
 
-func NewRequestHandler(storage *service.ShorteningService) *RequestHandler {
-	return &RequestHandler{*storage}
+func NewRequestHandler(service *service.ShorteningService) *RequestHandler {
+	return &RequestHandler{
+		service: *service,
+	}
 }
 
 // handlePostRequest handles POST requests without path parameters, i.e. `POST /`,
@@ -31,12 +36,11 @@ func (h *RequestHandler) handlePostRequest(w http.ResponseWriter, r *http.Reques
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	id := h.storage.Put(originalURL)
+	id := h.service.Put(originalURL)
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusCreated)
-	shortenedURL := util.ServerAddress + id
-	_, err := w.Write([]byte(shortenedURL))
+	_, err := w.Write([]byte(h.makeShortURL(id)))
 	if err != nil {
 		log.Printf("Error while writing body body: %v\n", err)
 	}
@@ -51,9 +55,53 @@ func (h *RequestHandler) handleGetRequest(w http.ResponseWriter, r *http.Request
 	}
 
 	id := strings.TrimLeft(r.URL.Path, "/")
-	originalURL := h.storage.Get(id)
+	originalURL := h.service.Get(id)
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Location", originalURL)
 	w.WriteHeader(http.StatusTemporaryRedirect)
+}
+
+func (h *RequestHandler) handleJSONPost(w http.ResponseWriter, r *http.Request) {
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Printf("Error while closing request body: %v\n", err)
+		}
+	}(r.Body)
+	resBody, err := io.ReadAll(r.Body)
+	if err != nil {
+		fmt.Printf("Error while reading request body: %v\n", err)
+	}
+
+	value := Request{}
+	if err := json.Unmarshal(resBody, &value); err != nil {
+		log.Fatal("can not unmarshal body:[", string(resBody), "] ", err)
+	}
+	hash := h.service.Put(value.URL)
+	response := Response{h.makeShortURL(hash)}
+	responseString, err := json.Marshal(response)
+	if err != nil {
+		fmt.Printf("Error while marshalling response: %v\n", err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	_, err = w.Write(responseString)
+	if err != nil {
+		fmt.Printf("Error while writing response: %v\n", err)
+	}
+}
+
+func (h *RequestHandler) makeShortURL(id string) string {
+	return util.ServerAddress + id
+}
+
+type Request struct {
+	URL string `json:"url"`
+}
+
+type Response struct {
+	Result string `json:"result"`
 }
