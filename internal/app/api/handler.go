@@ -15,11 +15,13 @@ import (
 
 type RequestHandler struct {
 	service service.ShorteningService
+	baseURL string
 }
 
-func NewRequestHandler(service *service.ShorteningService) *RequestHandler {
+func NewRequestHandler(service *service.ShorteningService, baseURL string) *RequestHandler {
 	return &RequestHandler{
 		service: *service,
+		baseURL: baseURL,
 	}
 }
 
@@ -95,7 +97,7 @@ func (h *RequestHandler) handleJSONPost(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *RequestHandler) makeShortURL(id string) string {
-	return util.ServerAddress + id
+	return h.baseURL + "/" + id
 }
 
 type Request struct {

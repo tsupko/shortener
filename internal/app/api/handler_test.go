@@ -11,10 +11,11 @@ import (
 
 	"github.com/tsupko/shortener/internal/app/service"
 	"github.com/tsupko/shortener/internal/app/storage"
+	"github.com/tsupko/shortener/internal/app/util"
 )
 
 func TestHandlers(t *testing.T) {
-	h := NewRequestHandler(service.NewShorteningService(storage.NewTestStorage()))
+	h := NewRequestHandler(service.NewShorteningService(storage.NewTestStorage()), util.ServerAddress)
 	type request struct {
 		method string
 		path   string

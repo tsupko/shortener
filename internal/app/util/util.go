@@ -12,7 +12,7 @@ const (
 	alphabet       = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	alphabetLength = len(alphabet)
 	shortURLLength = 8
-	ServerAddress  = "http://localhost:8080/"
+	ServerAddress  = "http://localhost:8080"
 )
 
 func init() {
@@ -34,17 +34,6 @@ func ReadRequestBody(r *http.Request) (string, error) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Printf("Error while reading request body: %v\n", err)
-	}
-	return string(body), err
-}
-
-func ReadResponseBody(r *http.Response) (string, error) {
-	defer func() {
-		_ = r.Body.Close()
-	}()
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error while reading response body: %v\n", err)
 	}
 	return string(body), err
 }
