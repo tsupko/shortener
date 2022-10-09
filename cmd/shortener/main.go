@@ -12,8 +12,9 @@ import (
 )
 
 type Config struct {
-	ServerAddress string `env:"SERVER_ADDRESS" envDefault:"localhost:8080"`
-	BaseURL       string `env:"BASE_URL" envDefault:"http://localhost:8080"`
+	ServerAddress   string `env:"SERVER_ADDRESS" envDefault:"localhost:8080"`
+	BaseURL         string `env:"BASE_URL" envDefault:"http://localhost:8080"`
+	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 }
 
 func main() {
@@ -23,8 +24,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	memoryStorage := storage.NewMemoryStorage()
-	shorteningService := service.NewShorteningService(memoryStorage)
+	var store storage.Storage
+	if cfg.FileStoragePath != "" {
+		log.Println("environment variable `FILE_STORAGE_PATH` is found: " + cfg.FileStoragePath)
+		store = storage.NewFileStorage(cfg.FileStoragePath)
+	} else {
+		store = storage.NewMemoryStorage()
+	}
+	shorteningService := service.NewShorteningService(store)
 	handler := api.NewRequestHandler(shorteningService, cfg.BaseURL)
 	router := api.NewRouter(handler)
 	log.Fatalln(http.ListenAndServe(cfg.ServerAddress, router))
