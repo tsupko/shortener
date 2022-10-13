@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -11,7 +10,7 @@ import (
 type FileStorage struct {
 	data            map[string]string
 	fileStoragePath string
-	producer        *Producer
+	producer        *producer
 	mtx             sync.RWMutex
 }
 
@@ -59,14 +58,9 @@ func checkDirExistOrCreate(fileStoragePath string) {
 func readFromFileIntoMap(fileStoragePath string) map[string]string {
 	consumer, err := NewConsumer(fileStoragePath)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Error while reading file from disk: %v\n", err)
 	}
-	defer func(consumer *Consumer) {
-		err := consumer.Close()
-		if err != nil {
-			fmt.Printf("Error while closing consumer: %v\n", err)
-		}
-	}(consumer)
+	defer consumer.Close()
 
 	mapStore := make(map[string]string)
 	for i := 0; ; i++ {
@@ -80,9 +74,9 @@ func readFromFileIntoMap(fileStoragePath string) map[string]string {
 }
 
 func (s *FileStorage) writeToFile(hash string, url string) {
-	record := Record{hash, url}
+	record := record{hash, url}
 	err := s.producer.WriteRecord(&record)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Error while writing to file: %v\n", err)
 	}
 }

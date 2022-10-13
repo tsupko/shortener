@@ -22,7 +22,7 @@ func main() {
 	var cfg Config
 	err := env.Parse(&cfg)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("error while parsing environment variables: %s\n", err)
 	}
 
 	flag.StringVar(&cfg.ServerAddress, "a", cfg.ServerAddress, "-a serverAddress")
@@ -32,7 +32,7 @@ func main() {
 
 	var store storage.Storage
 	if cfg.FileStoragePath != "" {
-		log.Println("environment variable `FILE_STORAGE_PATH` is found: " + cfg.FileStoragePath)
+		log.Printf("environment variable `FILE_STORAGE_PATH` is found: %s\n", cfg.FileStoragePath)
 		store = storage.NewFileStorage(cfg.FileStoragePath)
 	} else {
 		store = storage.NewMemoryStorage()
@@ -40,5 +40,8 @@ func main() {
 	shorteningService := service.NewShorteningService(store)
 	handler := api.NewRequestHandler(shorteningService, cfg.BaseURL)
 	router := api.NewRouter(handler)
-	log.Fatalln(http.ListenAndServe(cfg.ServerAddress, router))
+	err = http.ListenAndServe(cfg.ServerAddress, router)
+	if err != nil {
+		log.Printf("server returned error: %s\n", err)
+	}
 }

@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -65,26 +64,27 @@ func (h *RequestHandler) handleGetRequest(w http.ResponseWriter, r *http.Request
 }
 
 func (h *RequestHandler) handleJSONPost(w http.ResponseWriter, r *http.Request) {
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
+	defer func() {
+		err := r.Body.Close()
 		if err != nil {
-			fmt.Printf("Error while closing request body: %v\n", err)
+			log.Printf("Error while closing request body: %v\n", err)
 		}
-	}(r.Body)
+	}()
 	resBody, err := io.ReadAll(r.Body)
 	if err != nil {
-		fmt.Printf("Error while reading request body: %v\n", err)
+		log.Printf("Error while reading request body: %v\n", err)
+		return
 	}
 
 	value := Request{}
 	if err := json.Unmarshal(resBody, &value); err != nil {
-		log.Fatal("can not unmarshal body:[", string(resBody), "] ", err)
+		http.Error(w, "Could not unmarshal request: "+err.Error(), http.StatusBadRequest)
 	}
 	hash := h.service.Put(value.URL)
 	response := Response{h.makeShortURL(hash)}
 	responseString, err := json.Marshal(response)
 	if err != nil {
-		fmt.Printf("Error while marshalling response: %v\n", err)
+		http.Error(w, "Could not marshal response: "+err.Error(), http.StatusInternalServerError)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -92,7 +92,7 @@ func (h *RequestHandler) handleJSONPost(w http.ResponseWriter, r *http.Request) 
 
 	_, err = w.Write(responseString)
 	if err != nil {
-		fmt.Printf("Error while writing response: %v\n", err)
+		log.Printf("Error while writing response: %v\n", err)
 	}
 }
 

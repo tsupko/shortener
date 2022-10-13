@@ -2,7 +2,6 @@ package api
 
 import (
 	"compress/gzip"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -31,6 +30,7 @@ func gzipResponseHandle(next http.Handler) http.Handler {
 		if err != nil {
 			_, err := io.WriteString(w, err.Error())
 			if err != nil {
+				http.Error(w, "Could not compress response: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
 			return
@@ -38,7 +38,7 @@ func gzipResponseHandle(next http.Handler) http.Handler {
 		defer func(gz *gzip.Writer) {
 			err := gz.Close()
 			if err != nil {
-				fmt.Printf("Error while closing writer: %v\n", err)
+				log.Printf("Error while closing writer: %v\n", err)
 			}
 		}(gz)
 
@@ -78,7 +78,7 @@ func gzipRequestHandle(next http.Handler) http.Handler {
 		defer func(gz *gzip.Reader) {
 			err := gz.Close()
 			if err != nil {
-				fmt.Printf("Error while closing reader: %v\n", err)
+				log.Printf("Error while closing reader: %v\n", err)
 			}
 		}(gz)
 		r.Body = gzipRequestBody{ReadCloser: gz}

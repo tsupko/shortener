@@ -11,7 +11,6 @@ func NewRouter(m *RequestHandler) chi.Router {
 	r.Use(gzipResponseHandle, gzipRequestHandle)
 	r.Route("/", func(r chi.Router) {
 		r.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
-			_ = chi.URLParam(r, "id")
 			m.handleGetRequest(w, r)
 		})
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
