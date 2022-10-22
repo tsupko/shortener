@@ -76,15 +76,17 @@ func (h *RequestHandler) handleJSONPost(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	value := Request{}
+	value := request{}
 	if err := json.Unmarshal(resBody, &value); err != nil {
 		http.Error(w, "Could not unmarshal request: "+err.Error(), http.StatusBadRequest)
+		return
 	}
 	hash := h.service.Put(value.URL)
-	response := Response{h.makeShortURL(hash)}
+	response := response{h.makeShortURL(hash)}
 	responseString, err := json.Marshal(response)
 	if err != nil {
 		http.Error(w, "Could not marshal response: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -100,10 +102,10 @@ func (h *RequestHandler) makeShortURL(id string) string {
 	return h.baseURL + "/" + id
 }
 
-type Request struct {
+type request struct {
 	URL string `json:"url"`
 }
 
-type Response struct {
+type response struct {
 	Result string `json:"result"`
 }

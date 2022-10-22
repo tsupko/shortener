@@ -111,7 +111,7 @@ func TestHandlers(t *testing.T) {
 				} else if tt.request.path == "/api/shorten" {
 					h.handleJSONPost(w, request)
 				} else {
-					panic("unexpected path:" + tt.request.path)
+					t.Fatalf("unexpected path: %s", tt.request.path)
 				}
 			}
 

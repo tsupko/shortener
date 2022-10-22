@@ -63,7 +63,7 @@ func readFromFileIntoMap(fileStoragePath string) map[string]string {
 	defer consumer.Close()
 
 	mapStore := make(map[string]string)
-	for i := 0; ; i++ {
+	for {
 		record, err := consumer.ReadRecord()
 		if err != nil {
 			break
