@@ -1,9 +1,21 @@
 package storage
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 type MemoryStorage struct {
 	concurrentMap sync.Map
+}
+
+func (s *MemoryStorage) GetAll() (interface{}, interface{}) {
+	regularMap := map[string]interface{}{}
+	s.concurrentMap.Range(func(key, value interface{}) bool {
+		regularMap[fmt.Sprint(key)] = value
+		return true
+	})
+	return regularMap, nil
 }
 
 var _ Storage = &MemoryStorage{}

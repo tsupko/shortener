@@ -9,10 +9,11 @@ import (
 )
 
 const (
-	alphabet       = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	alphabetLength = len(alphabet)
-	shortURLLength = 8
-	ServerAddress  = "http://localhost:8080"
+	alphabet         = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	alphabetLength   = len(alphabet)
+	shortURLLength   = 8
+	ServerAddress    = "http://localhost:8080"
+	UserIDCookieName = "userID"
 )
 
 func init() {

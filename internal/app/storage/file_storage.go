@@ -14,6 +14,10 @@ type FileStorage struct {
 	mtx             sync.RWMutex
 }
 
+func (s *FileStorage) GetAll() (interface{}, interface{}) {
+	return s.data, nil
+}
+
 var _ Storage = &FileStorage{}
 
 func NewFileStorage(fileStoragePath string) *FileStorage {

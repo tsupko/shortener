@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/tsupko/shortener/internal/app/util"
@@ -102,10 +103,58 @@ func (h *RequestHandler) makeShortURL(id string) string {
 	return h.baseURL + "/" + id
 }
 
+func (h *RequestHandler) getUserUrls(w http.ResponseWriter, r *http.Request) {
+	userIDCookie, err := r.Cookie(util.UserIDCookieName)
+	if err != nil {
+		log.Println("Error while getting userID cookie:", err)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	userID, err2 := decodeID(userIDCookie.Value)
+	if err2 != nil {
+		log.Println("Error while decoding userID cookie:", err2)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	log.Println(strconv.Itoa(int(userID)) + " userID found")
+
+	pairs, err3 := h.service.GetAll()
+
+	if err3 != nil {
+		log.Println("Error while getting data from storage:", err3)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	var list []listResponse
+
+	for hash, value := range pairs.(map[string]string) {
+		listResponse := listResponse{h.makeShortURL(hash), value}
+		list = append(list, listResponse)
+	}
+	responseString, err := json.Marshal(list)
+	if err != nil {
+		panic(err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	_, err = w.Write(responseString)
+	if err != nil {
+		panic(err)
+	}
+}
+
 type request struct {
 	URL string `json:"url"`
 }
 
 type response struct {
 	Result string `json:"result"`
+}
+
+type listResponse struct {
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
 }

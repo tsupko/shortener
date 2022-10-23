@@ -10,6 +10,11 @@ type MockStorage struct {
 	requestCount int
 }
 
+func (m *MockStorage) GetAll() (interface{}, interface{}) {
+	//TODO implement me
+	panic("implement me")
+}
+
 var _ storage.Storage = &MockStorage{}
 
 func (m *MockStorage) Put(id string, _ string) string {

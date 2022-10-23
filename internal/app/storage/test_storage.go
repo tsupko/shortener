@@ -3,6 +3,11 @@ package storage
 type TestStorage struct {
 }
 
+func (t TestStorage) GetAll() (interface{}, interface{}) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func NewTestStorage() *TestStorage {
 	return &TestStorage{}
 }

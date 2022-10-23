@@ -34,3 +34,7 @@ func (s *ShorteningService) generateShorteningIdentifier() string {
 	}
 	return s.generateShorteningIdentifier()
 }
+
+func (s *ShorteningService) GetAll() (interface{}, interface{}) {
+	return s.storage.GetAll()
+}
