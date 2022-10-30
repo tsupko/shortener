@@ -15,16 +15,18 @@ func NewShorteningService(storage storage.Storage) *ShorteningService {
 	return &ShorteningService{storage: storage}
 }
 
-func (s *ShorteningService) Put(originalURL string) string {
+func (s *ShorteningService) Save(originalURL string) (string, error) {
 	shorteningIdentifier := s.generateShorteningIdentifier()
 	log.Printf("storage: put original URL %s identified by its shortening ID %s\n", originalURL, shorteningIdentifier)
-	return s.storage.Put(shorteningIdentifier, originalURL)
+	return s.storage.Save(shorteningIdentifier, originalURL)
 }
 
-func (s *ShorteningService) Get(shorteningIdentifier string) string {
-	originalURL, _ := s.storage.Get(shorteningIdentifier)
-	log.Printf("storage: got original URL %s identified by its shortening ID %s\n", originalURL, shorteningIdentifier)
-	return originalURL
+func (s *ShorteningService) Get(shorteningIdentifier string) (string, error) {
+	originalURL, err := s.storage.Get(shorteningIdentifier)
+	if err != nil {
+		log.Printf("storage: got original URL %s identified by its shortening ID %s\n", originalURL, shorteningIdentifier)
+	}
+	return originalURL, err
 }
 
 func (s *ShorteningService) GetAll() (interface{}, interface{}) {
@@ -32,10 +34,10 @@ func (s *ShorteningService) GetAll() (interface{}, interface{}) {
 }
 
 func (s *ShorteningService) generateShorteningIdentifier() string {
-	id := util.GenerateUniqueID()
-	if _, ok := s.storage.Get(id); !ok {
-		return id
+	hash := util.GenerateUniqueID()
+	if _, err := s.storage.Get(hash); err != nil {
+		return hash
 	}
-	log.Printf("hash %s already exists, generating a new one", id)
+	log.Printf("hash %s already exists, generating a new one", hash)
 	return s.generateShorteningIdentifier()
 }

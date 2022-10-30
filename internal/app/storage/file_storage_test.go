@@ -8,18 +8,16 @@ import (
 	"github.com/tsupko/shortener/internal/app/util"
 )
 
-const fileStoragePath = "file.log"
-
 func TestReadFromFileWhenCreated(t *testing.T) {
 	hash := util.GenerateUniqueID()
 
-	fileStorage := NewFileStorage(fileStoragePath)
+	fileStorage := NewFileStorage("file.log")
 	fileStorage.writeToFile(hash, "url")
 
 	url, _ := fileStorage.Get(hash)
 	assert.Equal(t, "", url)
 
-	anotherStorage := NewFileStorage(fileStoragePath)
+	anotherStorage := NewFileStorage("file.log")
 	url, _ = anotherStorage.Get(hash)
 	assert.Equal(t, "url", url)
 }
@@ -27,14 +25,14 @@ func TestReadFromFileWhenCreated(t *testing.T) {
 func TestDoubleSave(t *testing.T) {
 	hash := util.GenerateUniqueID()
 
-	fileStorage := NewFileStorage(fileStoragePath)
-	fileStorage.Put(hash, "url")
-	fileStorage.Put(hash, "url2")
+	fileStorage := NewFileStorage("file.log")
+	fileStorage.Save(hash, "url")
+	fileStorage.Save(hash, "url2")
 
 	url, _ := fileStorage.Get(hash)
 	assert.Equal(t, "url2", url)
 
-	anotherStorage := NewFileStorage(fileStoragePath)
+	anotherStorage := NewFileStorage("file.log")
 	url, _ = anotherStorage.Get(hash)
 	assert.Equal(t, "url2", url)
 }

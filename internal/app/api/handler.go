@@ -41,13 +41,16 @@ func (h *RequestHandler) handlePostRequest(w http.ResponseWriter, r *http.Reques
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	id := h.service.Put(originalURL)
+	id, err := h.service.Save(originalURL)
+	if err != nil {
+		log.Printf("Error while saving original URL: %v\n", err)
+	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusCreated)
-	_, err := w.Write([]byte(h.makeShortURL(id)))
+	_, err = w.Write([]byte(h.makeShortURL(id)))
 	if err != nil {
-		log.Printf("Error while writing body body: %v\n", err)
+		log.Printf("Error while writing response body: %v\n", err)
 	}
 }
 
@@ -60,7 +63,10 @@ func (h *RequestHandler) handleGetRequest(w http.ResponseWriter, r *http.Request
 	}
 
 	id := strings.TrimLeft(r.URL.Path, "/")
-	originalURL := h.service.Get(id)
+	originalURL, err := h.service.Get(id)
+	if err != nil {
+		log.Printf("Error while getting original URL: %v\n", err)
+	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Location", originalURL)
@@ -85,7 +91,10 @@ func (h *RequestHandler) handleJSONPost(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Could not unmarshal request: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	hash := h.service.Put(value.URL)
+	hash, err := h.service.Save(value.URL)
+	if err != nil {
+		log.Printf("Error while saving original URL: %v\n", err)
+	}
 	response := response{h.makeShortURL(hash)}
 	responseString, err := json.Marshal(response)
 	if err != nil {
@@ -109,15 +118,25 @@ func (h *RequestHandler) handleBatch(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	value := request{}
-	if err := json.Unmarshal(resBody, &value); err != nil {
+	var batchRequests []BatchRequest
+	if err := json.Unmarshal(resBody, &batchRequests); err != nil {
 		log.Println("can not unmarshal body:[", string(resBody), "] ", err)
 	}
-	hash := h.service.Put(value.URL)
-	response := response{h.makeShortURL(hash)}
-	responseString, err := json.Marshal(response)
+
+	var batchResponses = make([]BatchResponse, 0, len(batchRequests))
+
+	for i := range batchRequests {
+		hash, err := h.service.Save(batchRequests[i].OriginalURL)
+		if err != nil {
+			log.Printf("Error while saving batch: %v\n", err)
+		}
+		batchResponse := BatchResponse{batchRequests[i].CorrelationID, h.makeShortURL(hash)}
+		batchResponses = append(batchResponses, batchResponse)
+	}
+
+	responseString, err := json.Marshal(batchResponses)
 	if err != nil {
-		log.Println("can not marshal response:[", string(resBody), "] ", err)
+		log.Println("can not marshal batchResponses:[", string(resBody), "] ", err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -1,7 +1,8 @@
 package storage
 
 type Storage interface {
-	Put(id string, url string) string
-	Get(id string) (string, bool)
-	GetAll() (interface{}, interface{})
+	Save(hash string, url string) (string, error)
+	SaveBatch(hashes []string, urls []string) ([]string, error)
+	Get(hash string) (string, error)
+	GetAll() (map[string]string, error)
 }

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
+
+	"github.com/tsupko/shortener/internal/app/exceptions"
 )
 
 type Source struct {
@@ -19,6 +21,12 @@ func NewDB(DatabaseDsn string) (*Source, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	db.SetMaxOpenConns(20)
+	db.SetMaxIdleConns(20)
+	db.SetConnMaxIdleTime(time.Second * 30)
+	db.SetConnMaxLifetime(time.Minute * 2)
+
 	return &Source{db: db}, nil
 }
 
@@ -51,7 +59,7 @@ func (dbSource *Source) InitTables() {
 	log.Println("init tables are created")
 }
 
-func (dbSource *Source) Save(hash string, url string) {
+func (dbSource *Source) Save(hash string, url string) error {
 	log.Println("try to save; hash=", hash, "url=", url)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -59,11 +67,38 @@ func (dbSource *Source) Save(hash string, url string) {
 	row, err := dbSource.db.ExecContext(ctx, "insert into urls (hash, url) values ($1, $2)", hash, url)
 	if err != nil {
 		log.Println("error while Save:", err)
+		return err
 	}
 	log.Println("db.Saved ", row)
+	return nil
 }
 
-func (dbSource *Source) Get(hash string) (string, bool) {
+func (dbSource *Source) SaveBatch(hashes []string, urls []string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	tx, err := dbSource.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := dbSource.db.PrepareContext(ctx, "insert into urls (hash, url) values ($1, $2)")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for i := range hashes {
+		if _, err = stmt.ExecContext(ctx, hashes[i], urls[i]); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (dbSource *Source) Get(hash string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	var url string
@@ -72,25 +107,27 @@ func (dbSource *Source) Get(hash string) (string, bool) {
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			log.Println("Get from DB return nothing:", err)
-			return "", false
+			return "", exceptions.ErrURLNotFound
 		}
 		log.Println("error while Get from DB:", err)
 	}
-	return url, true
+	return url, nil
 }
 
-func (dbSource *Source) GetAll() map[string]string {
+func (dbSource *Source) GetAll() (map[string]string, error) {
+	Limit := 2000
+
 	var hash string
 	var url string
-	var data = make(map[string]string)
+	data := make(map[string]string)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	rows, err := dbSource.db.QueryContext(ctx, "select hash, url from urls limit 20")
+	rows, err := dbSource.db.QueryContext(ctx, "select hash, url from urls limit $1", Limit)
 	if err != nil {
 		log.Println(err)
-		return data
+		return data, err
 	}
 
 	defer rows.Close()
@@ -99,13 +136,30 @@ func (dbSource *Source) GetAll() map[string]string {
 		err = rows.Scan(&hash, &url)
 		if err != nil {
 			log.Println(err)
-			return data
+			return data, err
 		}
 		data[hash] = url
 	}
 	err = rows.Err()
 	if err != nil {
-		return data
+		return data, err
 	}
-	return data
+	return data, nil
+}
+
+func (dbSource *Source) GetHashByURL(url string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var hash string
+	row := dbSource.db.QueryRowContext(ctx, "select hash from urls where url = $1", url)
+	err := row.Scan(&hash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Println("Get hash from DB return nothing:", err)
+			return "", err
+		}
+		log.Println("exceptions while Get hash from DB:", err)
+	}
+	return hash, nil
 }

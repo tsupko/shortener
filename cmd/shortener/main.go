@@ -53,8 +53,8 @@ func main() {
 		defer dbSource.Close()
 		store = storage.NewDBStorage(dbSource)
 	case cfg.FileStoragePath != "":
-		log.Println("init store as file store based")
 		log.Println("environment var FILE_STORAGE_PATH is found: " + cfg.FileStoragePath)
+		log.Println("init store as file store based")
 		store = storage.NewFileStorage(cfg.FileStoragePath)
 	default:
 		log.Println("init store as memory store based")

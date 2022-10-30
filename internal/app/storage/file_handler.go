@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-type record struct {
+type Record struct {
 	Hash string `json:"hash"`
 	URL  string `json:"url"`
 }
@@ -16,7 +16,7 @@ type producer struct {
 }
 
 func NewProducer(filename string) (*producer, error) {
-	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0777)
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o777)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +27,7 @@ func NewProducer(filename string) (*producer, error) {
 	}, nil
 }
 
-func (p *producer) WriteRecord(record *record) error {
+func (p *producer) WriteRecord(record *Record) error {
 	return p.encoder.Encode(&record)
 }
 
@@ -41,7 +41,7 @@ type consumer struct {
 }
 
 func NewConsumer(filename string) (*consumer, error) {
-	file, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0777)
+	file, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0o777)
 	if err != nil {
 		return nil, err
 	}
@@ -52,8 +52,8 @@ func NewConsumer(filename string) (*consumer, error) {
 	}, nil
 }
 
-func (c *consumer) ReadRecord() (*record, error) {
-	event := record{}
+func (c *consumer) ReadRecord() (*Record, error) {
+	event := Record{}
 	if err := c.decoder.Decode(&event); err != nil {
 		return nil, err
 	}

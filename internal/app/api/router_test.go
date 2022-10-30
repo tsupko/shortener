@@ -129,6 +129,21 @@ func getServer() *httptest.Server {
 	return ts
 }
 
+func TestPostBatchApi(t *testing.T) {
+	ts := getServer()
+	defer ts.Close()
+
+	body := `[
+    {"correlation_id": "123","original_url": "https://ya.ru"},
+    {"correlation_id": "987","original_url": "https://bo.ru"}
+    ] `
+	resp, responseBody := testRequest(t, ts, "POST", "/api/shorten/batch", body)
+
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	assert.Equal(t, `[{"correlation_id":"123","short_url":"http://localhost:8080/12345"},{"correlation_id":"987","short_url":"http://localhost:8080/67890"}]`, responseBody)
+	closeBody(t, resp)
+}
+
 func testRequest(t *testing.T, ts *httptest.Server, method, path string, body string, headers ...string) (*http.Response, string) {
 	req, err := http.NewRequest(method, ts.URL+path, strings.NewReader(body))
 	if len(headers) == 2 {
