@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tsupko/shortener/internal/app/service"
-	"github.com/tsupko/shortener/internal/app/storage"
 )
 
 func TestGetEmpty(t *testing.T) {
@@ -25,7 +24,7 @@ func TestGetEmpty(t *testing.T) {
 
 	assert.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
 	assert.Equal(t, "", resp.Header.Get("Location"))
-	assert.Equal(t, "", body)
+	assert.Equal(t, "redirect to ", body)
 	closeBody(t, resp)
 }
 
@@ -37,7 +36,7 @@ func TestGetPositive(t *testing.T) {
 
 	assert.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
 	assert.Equal(t, "https://ya.ru", resp.Header.Get("Location"))
-	assert.Equal(t, "", body)
+	assert.Equal(t, "redirect to https://ya.ru", body)
 	closeBody(t, resp)
 }
 
@@ -121,7 +120,7 @@ func TestPingDb(t *testing.T) {
 
 func getServer() *httptest.Server {
 	r := NewRouter(NewRequestHandler(
-		service.NewShorteningService(storage.NewTestStorage()),
+		service.NewMockShorteningService(),
 		"http://localhost:8080",
 		nil,
 	))
@@ -195,12 +194,12 @@ func unzip(original string) string {
 	reader := bytes.NewReader([]byte(original))
 	gzReader, err := gzip.NewReader(reader)
 	if err != nil {
-		log.Println("error while unzip", err)
+		log.Println("exceptions while unzip", err)
 		return ""
 	}
 	output, err := io.ReadAll(gzReader)
 	if err != nil {
-		log.Println("error while unzip", err)
+		log.Println("exceptions while unzip", err)
 		return ""
 	}
 	return string(output)

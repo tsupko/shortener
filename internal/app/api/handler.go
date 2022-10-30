@@ -8,7 +8,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/tsupko/shortener/internal/app/db"
+	"github.com/tsupko/shortener/internal/app/exceptions"
 	"github.com/tsupko/shortener/internal/app/util"
 
 	"github.com/tsupko/shortener/internal/app/service"
@@ -20,9 +23,9 @@ type RequestHandler struct {
 	dbSource *db.Source
 }
 
-func NewRequestHandler(service *service.ShorteningService, baseURL string, db *db.Source) *RequestHandler {
+func NewRequestHandler(service service.ShorteningService, baseURL string, db *db.Source) *RequestHandler {
 	return &RequestHandler{
-		service:  *service,
+		service:  service,
 		baseURL:  baseURL,
 		dbSource: db,
 	}
@@ -41,14 +44,16 @@ func (h *RequestHandler) handlePostRequest(w http.ResponseWriter, r *http.Reques
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	id, err := h.service.Save(originalURL)
-	if err != nil {
-		log.Printf("Error while saving original URL: %v\n", err)
+	hash, err := h.service.Save(originalURL)
+	if errors.Is(err, exceptions.ErrURLAlreadyExist) {
+		w.WriteHeader(http.StatusConflict)
+	} else {
+		w.WriteHeader(http.StatusCreated)
 	}
+	shortURL := h.makeShortURL(hash)
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusCreated)
-	_, err = w.Write([]byte(h.makeShortURL(id)))
+	_, err = w.Write([]byte(shortURL))
 	if err != nil {
 		log.Printf("Error while writing response body: %v\n", err)
 	}
@@ -65,12 +70,16 @@ func (h *RequestHandler) handleGetRequest(w http.ResponseWriter, r *http.Request
 	id := strings.TrimLeft(r.URL.Path, "/")
 	originalURL, err := h.service.Get(id)
 	if err != nil {
-		log.Printf("Error while getting original URL: %v\n", err)
+		originalURL = "" // TODO if not found what to do?
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Location", originalURL)
 	w.WriteHeader(http.StatusTemporaryRedirect)
+	_, err = w.Write([]byte("redirect to " + originalURL))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (h *RequestHandler) handleJSONPost(w http.ResponseWriter, r *http.Request) {
@@ -91,19 +100,25 @@ func (h *RequestHandler) handleJSONPost(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Could not unmarshal request: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+
 	hash, err := h.service.Save(value.URL)
+	if errors.Is(err, exceptions.ErrURLAlreadyExist) {
+		w.WriteHeader(http.StatusConflict)
+	} else {
+		w.WriteHeader(http.StatusCreated)
+	}
 	if err != nil {
 		log.Printf("Error while saving original URL: %v\n", err)
 	}
+
 	response := response{h.makeShortURL(hash)}
 	responseString, err := json.Marshal(response)
 	if err != nil {
 		http.Error(w, "Could not marshal response: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
 
 	_, err = w.Write(responseString)
 	if err != nil {
@@ -123,12 +138,14 @@ func (h *RequestHandler) handleBatch(w http.ResponseWriter, r *http.Request) {
 		log.Println("can not unmarshal body:[", string(resBody), "] ", err)
 	}
 
-	var batchResponses = make([]BatchResponse, 0, len(batchRequests))
+	batchResponses := make([]BatchResponse, 0, len(batchRequests))
 
+	// TODO make it through batch SaveBatch
 	for i := range batchRequests {
 		hash, err := h.service.Save(batchRequests[i].OriginalURL)
 		if err != nil {
-			log.Printf("Error while saving batch: %v\n", err)
+			log.Println("unexpected exceptions", err)
+			w.WriteHeader(http.StatusInternalServerError)
 		}
 		batchResponse := BatchResponse{batchRequests[i].CorrelationID, h.makeShortURL(hash)}
 		batchResponses = append(batchResponses, batchResponse)
@@ -194,7 +211,7 @@ func (h *RequestHandler) getUserUrls(w http.ResponseWriter, r *http.Request) {
 
 	var list []listResponse
 
-	for hash, value := range pairs.(map[string]string) {
+	for hash, value := range pairs {
 		listResponse := listResponse{h.makeShortURL(hash), value}
 		list = append(list, listResponse)
 	}

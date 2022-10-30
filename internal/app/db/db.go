@@ -33,7 +33,7 @@ func NewDB(DatabaseDsn string) (*Source, error) {
 func (dbSource *Source) Close() error {
 	err := dbSource.db.Close()
 	if err != nil {
-		log.Println("error closing connection to DB:", err)
+		log.Println("exceptions closing connection to DB:", err)
 	}
 	return err
 }
@@ -51,7 +51,10 @@ func (dbSource *Source) Ping() error {
 func (dbSource *Source) InitTables() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err := dbSource.db.ExecContext(ctx, "create table urls (hash varchar(30) not null constraint urls_pk primary key, url varchar(500))")
+	_, err := dbSource.db.ExecContext(ctx, `
+        create table urls (hash varchar(30) not null constraint urls_pk primary key, url varchar(500));
+		create unique index urls_url_uindex on urls (url);
+    `)
 	if err != nil {
 		log.Println("init tables are NOT created - ", err)
 		return

@@ -10,12 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/tsupko/shortener/internal/app/service"
-	"github.com/tsupko/shortener/internal/app/storage"
 )
 
 func TestHandlers(t *testing.T) {
 	h := NewRequestHandler(
-		service.NewShorteningService(storage.NewTestStorage()),
+		service.NewMockShorteningService(),
 		"http://localhost:8080",
 		nil,
 	)
@@ -48,7 +47,7 @@ func TestHandlers(t *testing.T) {
 					"Content-Type": {"text/plain; charset=utf-8"},
 					"Location":     {""},
 				},
-				body: "",
+				body: "redirect to ",
 			},
 		},
 		{
@@ -64,7 +63,7 @@ func TestHandlers(t *testing.T) {
 					"Content-Type": {"text/plain; charset=utf-8"},
 					"Location":     {"https://ya.ru"},
 				},
-				body: "",
+				body: "redirect to https://ya.ru",
 			},
 		},
 		{
@@ -72,12 +71,12 @@ func TestHandlers(t *testing.T) {
 			request: request{
 				method: http.MethodPost,
 				path:   "/",
-				body:   "https://github.com/tsupko/shortener/runs/7826862296?check_suite_focus=true",
+				body:   "https://ya.ru",
 			},
 			want: want{
 				statusCode: 201,
 				headers: map[string][]string{
-					"Content-Type": {"text/plain; charset=utf-8"},
+					"Content-Type": {""},
 					"Location":     {""},
 				},
 				body: "http://localhost:8080/12345",
@@ -97,6 +96,22 @@ func TestHandlers(t *testing.T) {
 					"Location":     {""},
 				},
 				body: `{"result":"http://localhost:8080/12345"}`,
+			},
+		},
+		{
+			name: "POST existing URL",
+			request: request{
+				method: http.MethodPost,
+				path:   "/api/shorten",
+				body:   `{"url":"https://already.exist"}`,
+			},
+			want: want{
+				statusCode: 409,
+				headers: map[string][]string{
+					"Content-Type": {"application/json"},
+					"Location":     {""},
+				},
+				body: `{"result":"http://localhost:8080/urlAlreadyExistHash"}`,
 			},
 		},
 	}
