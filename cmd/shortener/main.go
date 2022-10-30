@@ -8,6 +8,7 @@ import (
 	"github.com/caarlos0/env/v6"
 
 	"github.com/tsupko/shortener/internal/app/api"
+	"github.com/tsupko/shortener/internal/app/db"
 	"github.com/tsupko/shortener/internal/app/service"
 	"github.com/tsupko/shortener/internal/app/storage"
 )
@@ -16,6 +17,7 @@ type Config struct {
 	ServerAddress   string `env:"SERVER_ADDRESS" envDefault:"localhost:8080"`
 	BaseURL         string `env:"BASE_URL" envDefault:"http://localhost:8080"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
+	DatabaseDsn     string `env:"DATABASE_DSN" envDefault:"postgres://shortener:pass@localhost:5432/shortener"`
 }
 
 func main() {
@@ -28,6 +30,7 @@ func main() {
 	flag.StringVar(&cfg.ServerAddress, "a", cfg.ServerAddress, "-a serverAddress")
 	flag.StringVar(&cfg.BaseURL, "b", cfg.BaseURL, "-b baseUrl")
 	flag.StringVar(&cfg.FileStoragePath, "f", cfg.FileStoragePath, "-f fileStoragePath")
+	flag.StringVar(&cfg.DatabaseDsn, "d", cfg.DatabaseDsn, "-d DatabaseDsn")
 	flag.Parse()
 
 	var store storage.Storage
@@ -38,7 +41,8 @@ func main() {
 		store = storage.NewMemoryStorage()
 	}
 	shorteningService := service.NewShorteningService(store)
-	handler := api.NewRequestHandler(shorteningService, cfg.BaseURL)
+	dbService := db.NewDB(cfg.DatabaseDsn)
+	handler := api.NewRequestHandler(shorteningService, cfg.BaseURL, dbService)
 	router := api.NewRouter(handler)
 	err = http.ListenAndServe(cfg.ServerAddress, router)
 	if err != nil {

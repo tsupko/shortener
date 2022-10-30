@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/tsupko/shortener/internal/app/db"
 	"github.com/tsupko/shortener/internal/app/service"
 	"github.com/tsupko/shortener/internal/app/storage"
-	"github.com/tsupko/shortener/internal/app/util"
 )
 
 func TestGetEmpty(t *testing.T) {
@@ -110,8 +110,22 @@ func TestContentEncodingGzip(t *testing.T) {
 	closeBody(t, resp)
 }
 
+func TestPingDb(t *testing.T) {
+	ts := getServer()
+	defer ts.Close()
+
+	resp, _ := testRequest(t, ts, "GET", "/ping", "")
+
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	closeBody(t, resp)
+}
+
 func getServer() *httptest.Server {
-	r := NewRouter(NewRequestHandler(service.NewShorteningService(storage.NewTestStorage()), util.ServerAddress))
+	r := NewRouter(NewRequestHandler(
+		service.NewShorteningService(storage.NewTestStorage()),
+		"http://localhost:8080",
+		db.NewDB(""),
+	))
 	ts := httptest.NewServer(r)
 	return ts
 }

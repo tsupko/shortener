@@ -8,20 +8,23 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/tsupko/shortener/internal/app/db"
 	"github.com/tsupko/shortener/internal/app/util"
 
 	"github.com/tsupko/shortener/internal/app/service"
 )
 
 type RequestHandler struct {
-	service service.ShorteningService
-	baseURL string
+	service   service.ShorteningService
+	baseURL   string
+	dbService *db.DB
 }
 
-func NewRequestHandler(service *service.ShorteningService, baseURL string) *RequestHandler {
+func NewRequestHandler(service *service.ShorteningService, baseURL string, db *db.DB) *RequestHandler {
 	return &RequestHandler{
-		service: *service,
-		baseURL: baseURL,
+		service:   *service,
+		baseURL:   baseURL,
+		dbService: db,
 	}
 }
 
@@ -97,6 +100,16 @@ func (h *RequestHandler) handleJSONPost(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		log.Printf("Error while writing response: %v\n", err)
 	}
+}
+
+func (h *RequestHandler) handlePing(w http.ResponseWriter, r *http.Request) {
+	log.Println("db ping, DatabaseDsn:" + h.dbService.DatabaseDsn)
+	err := h.dbService.Ping()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Println("db ping error:", err)
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *RequestHandler) makeShortURL(id string) string {

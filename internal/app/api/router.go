@@ -22,6 +22,9 @@ func NewRouter(m *RequestHandler) chi.Router {
 		r.Get("/api/user/urls", func(w http.ResponseWriter, r *http.Request) {
 			m.getUserUrls(w, r)
 		})
+		r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
+			m.handlePing(w, r)
+		})
 	})
 	return r
 }
