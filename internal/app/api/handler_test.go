@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/tsupko/shortener/internal/app/db"
 	"github.com/tsupko/shortener/internal/app/service"
 	"github.com/tsupko/shortener/internal/app/storage"
 )
@@ -18,7 +17,7 @@ func TestHandlers(t *testing.T) {
 	h := NewRequestHandler(
 		service.NewShorteningService(storage.NewTestStorage()),
 		"http://localhost:8080",
-		db.NewDB(""),
+		nil,
 	)
 	type request struct {
 		method string

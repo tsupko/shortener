@@ -26,7 +26,7 @@ func NewFileStorage(fileStoragePath string) *FileStorage {
 
 	fileProducer, err := NewProducer(fileStoragePath)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("can not create NewFileStorage", err)
 	}
 	return &FileStorage{data: mapStore, fileStoragePath: fileStoragePath, producer: fileProducer}
 }
@@ -54,7 +54,7 @@ func checkDirExistOrCreate(fileStoragePath string) {
 	if _, err := os.Stat(fileStoragePath); os.IsNotExist(err) {
 		err := os.MkdirAll(dir, 0700)
 		if err != nil {
-			log.Fatal(err)
+			log.Println("error accessing file system:", err)
 		}
 	}
 }
@@ -62,7 +62,7 @@ func checkDirExistOrCreate(fileStoragePath string) {
 func readFromFileIntoMap(fileStoragePath string) map[string]string {
 	consumer, err := NewConsumer(fileStoragePath)
 	if err != nil {
-		log.Printf("Error while reading file from disk: %v\n", err)
+		log.Println("error reading file from disk:", err)
 	}
 	defer consumer.Close()
 
@@ -81,6 +81,6 @@ func (s *FileStorage) writeToFile(hash string, url string) {
 	record := record{hash, url}
 	err := s.producer.WriteRecord(&record)
 	if err != nil {
-		log.Printf("Error while writing to file: %v\n", err)
+		log.Println("error writing to file:", err)
 	}
 }

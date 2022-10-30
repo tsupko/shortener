@@ -15,16 +15,16 @@ import (
 )
 
 type RequestHandler struct {
-	service   service.ShorteningService
-	baseURL   string
-	dbService *db.DB
+	service  service.ShorteningService
+	baseURL  string
+	dbSource *db.Source
 }
 
-func NewRequestHandler(service *service.ShorteningService, baseURL string, db *db.DB) *RequestHandler {
+func NewRequestHandler(service *service.ShorteningService, baseURL string, db *db.Source) *RequestHandler {
 	return &RequestHandler{
-		service:   *service,
-		baseURL:   baseURL,
-		dbService: db,
+		service:  *service,
+		baseURL:  baseURL,
+		dbSource: db,
 	}
 }
 
@@ -102,12 +102,46 @@ func (h *RequestHandler) handleJSONPost(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+func (h *RequestHandler) handleBatch(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	resBody, err := io.ReadAll(r.Body)
+	if err != nil {
+		panic(err)
+	}
+
+	value := request{}
+	if err := json.Unmarshal(resBody, &value); err != nil {
+		log.Println("can not unmarshal body:[", string(resBody), "] ", err)
+	}
+	hash := h.service.Put(value.URL)
+	response := response{h.makeShortURL(hash)}
+	responseString, err := json.Marshal(response)
+	if err != nil {
+		log.Println("can not marshal response:[", string(resBody), "] ", err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	_, err = w.Write(responseString)
+	if err != nil {
+		log.Printf("Error while writing response: %v\n", err)
+	}
+}
+
 func (h *RequestHandler) handlePing(w http.ResponseWriter, r *http.Request) {
-	log.Println("db ping, DatabaseDsn:" + h.dbService.DatabaseDsn)
-	err := h.dbService.Ping()
+	if h.dbSource == nil {
+		log.Println("db ping error, db is not initialized")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	err := h.dbSource.Ping()
+
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Println("db ping error:", err)
+		return
 	}
 	w.WriteHeader(http.StatusOK)
 }
@@ -170,4 +204,14 @@ type response struct {
 type listResponse struct {
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
+}
+
+type BatchRequest struct {
+	CorrelationID string `json:"correlation_id"`
+	OriginalURL   string `json:"original_url"`
+}
+
+type BatchResponse struct {
+	CorrelationID string `json:"correlation_id"`
+	ShortURL      string `json:"short_url"`
 }

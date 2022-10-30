@@ -25,6 +25,9 @@ func NewRouter(m *RequestHandler) chi.Router {
 		r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
 			m.handlePing(w, r)
 		})
+		r.Post("/api/shorten/batch", func(w http.ResponseWriter, r *http.Request) {
+			m.handleBatch(w, r)
+		})
 	})
 	return r
 }

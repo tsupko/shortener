@@ -27,14 +27,15 @@ func (s *ShorteningService) Get(shorteningIdentifier string) string {
 	return originalURL
 }
 
+func (s *ShorteningService) GetAll() (interface{}, interface{}) {
+	return s.storage.GetAll()
+}
+
 func (s *ShorteningService) generateShorteningIdentifier() string {
 	id := util.GenerateUniqueID()
 	if _, ok := s.storage.Get(id); !ok {
 		return id
 	}
+	log.Printf("hash %s already exists, generating a new one", id)
 	return s.generateShorteningIdentifier()
-}
-
-func (s *ShorteningService) GetAll() (interface{}, interface{}) {
-	return s.storage.GetAll()
 }
