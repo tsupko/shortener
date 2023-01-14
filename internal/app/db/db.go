@@ -42,7 +42,7 @@ func (dbSource *Source) Ping() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	if err := dbSource.db.PingContext(ctx); err != nil {
-		log.Println("error while ping DB:", err)
+		log.Println("error ping DB:", err)
 		return err
 	}
 	return nil
@@ -69,7 +69,7 @@ func (dbSource *Source) Save(hash string, url string) error {
 
 	row, err := dbSource.db.ExecContext(ctx, "insert into urls (hash, url) values ($1, $2)", hash, url)
 	if err != nil {
-		log.Println("error while Save:", err)
+		log.Println("error Save:", err)
 		return err
 	}
 	log.Println("db.Saved ", row)
@@ -84,13 +84,23 @@ func (dbSource *Source) SaveBatch(hashes []string, urls []string) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func(tx *sql.Tx) {
+		err := tx.Rollback()
+		if err != nil {
+			log.Printf("error during rollback: %v", err)
+		}
+	}(tx)
 
 	stmt, err := dbSource.db.PrepareContext(ctx, "insert into urls (hash, url) values ($1, $2)")
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+	defer func(stmt *sql.Stmt) {
+		err := stmt.Close()
+		if err != nil {
+			log.Printf("error closing statement: %v", err)
+		}
+	}(stmt)
 
 	for i := range hashes {
 		if _, err = stmt.ExecContext(ctx, hashes[i], urls[i]); err != nil {
@@ -112,7 +122,7 @@ func (dbSource *Source) Get(hash string) (string, error) {
 			log.Println("Get from DB return nothing:", err)
 			return "", exceptions.ErrURLNotFound
 		}
-		log.Println("error while Get from DB:", err)
+		log.Println("error Get from DB:", err)
 	}
 	return url, nil
 }
@@ -133,7 +143,12 @@ func (dbSource *Source) GetAll() (map[string]string, error) {
 		return data, err
 	}
 
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			log.Printf("error closing result set: %v", err)
+		}
+	}(rows)
 
 	for rows.Next() {
 		err = rows.Scan(&hash, &url)
@@ -162,7 +177,7 @@ func (dbSource *Source) GetHashByURL(url string) (string, error) {
 			log.Println("Get hash from DB return nothing:", err)
 			return "", err
 		}
-		log.Println("exceptions while Get hash from DB:", err)
+		log.Println("exceptions Get hash from DB:", err)
 	}
 	return hash, nil
 }

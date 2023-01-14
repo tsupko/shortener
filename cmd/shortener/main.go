@@ -28,7 +28,7 @@ func main() {
 	var cfg Config
 	err := env.Parse(&cfg)
 	if err != nil {
-		log.Println("error while reading config file:", err)
+		log.Println("error reading config file:", err)
 	}
 
 	flag.StringVar(&cfg.ServerAddress, "a", cfg.ServerAddress, "-a serverAddress")

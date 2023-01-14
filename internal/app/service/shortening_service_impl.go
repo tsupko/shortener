@@ -17,17 +17,17 @@ func NewShorteningService(storage storage.Storage) *ShorteningServiceImpl {
 	return &ShorteningServiceImpl{storage: storage}
 }
 
-func (s *ShorteningServiceImpl) Save(originalURL string) (string, error) {
+func (s *ShorteningServiceImpl) Save(originalURL, userID string) (string, error) {
 	shorteningIdentifier := s.generateShorteningIdentifier()
 	log.Printf("storage: put original URL %s identified by its shortening ID %s\n", originalURL, shorteningIdentifier)
-	return s.storage.Save(shorteningIdentifier, originalURL)
+	return s.storage.Save(shorteningIdentifier, originalURL, userID)
 }
 
-func (s *ShorteningServiceImpl) SaveBatch(hashes []string, urls []string) ([]string, error) {
-	return s.storage.SaveBatch(hashes, urls)
+func (s *ShorteningServiceImpl) SaveBatch(hashes, urls, userIds []string) ([]string, error) {
+	return s.storage.SaveBatch(hashes, urls, userIds)
 }
 
-func (s *ShorteningServiceImpl) Get(shorteningIdentifier string) (string, error) {
+func (s *ShorteningServiceImpl) Get(shorteningIdentifier string) (storage.User, error) {
 	originalURL, err := s.storage.Get(shorteningIdentifier)
 	if err != nil {
 		log.Printf("storage: got original URL %s identified by its shortening ID %s\n", originalURL, shorteningIdentifier)
@@ -35,8 +35,8 @@ func (s *ShorteningServiceImpl) Get(shorteningIdentifier string) (string, error)
 	return originalURL, err
 }
 
-func (s *ShorteningServiceImpl) GetAll() (map[string]string, error) {
-	return s.storage.GetAll()
+func (s *ShorteningServiceImpl) GetAll(userID string) (map[string]string, error) {
+	return s.storage.GetAll(userID)
 }
 
 func (s *ShorteningServiceImpl) generateShorteningIdentifier() string {

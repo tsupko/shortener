@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/tsupko/shortener/internal/app/db"
 	"github.com/tsupko/shortener/internal/app/exceptions"
+	"github.com/tsupko/shortener/internal/app/storage"
 	"github.com/tsupko/shortener/internal/app/util"
 
 	"github.com/tsupko/shortener/internal/app/service"
@@ -44,7 +46,8 @@ func (h *RequestHandler) handlePostRequest(w http.ResponseWriter, r *http.Reques
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	hash, err := h.service.Save(originalURL)
+	userID := getUserID(r.Context())
+	hash, err := h.service.Save(originalURL, userID)
 	if errors.Is(err, exceptions.ErrURLAlreadyExist) {
 		w.WriteHeader(http.StatusConflict)
 	} else {
@@ -55,7 +58,7 @@ func (h *RequestHandler) handlePostRequest(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	_, err = w.Write([]byte(shortURL))
 	if err != nil {
-		log.Printf("Error while writing response body: %v\n", err)
+		log.Printf("error writing response body: %v\n", err)
 	}
 }
 
@@ -70,13 +73,13 @@ func (h *RequestHandler) handleGetRequest(w http.ResponseWriter, r *http.Request
 	id := strings.TrimLeft(r.URL.Path, "/")
 	originalURL, err := h.service.Get(id)
 	if err != nil {
-		originalURL = "" // TODO if not found what to do?
+		originalURL = storage.User{} // TODO if not found what to do?
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("Location", originalURL)
+	w.Header().Set("Location", originalURL.URL)
 	w.WriteHeader(http.StatusTemporaryRedirect)
-	_, err = w.Write([]byte("redirect to " + originalURL))
+	_, err = w.Write([]byte("redirect to " + originalURL.URL))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -86,12 +89,12 @@ func (h *RequestHandler) handleJSONPost(w http.ResponseWriter, r *http.Request) 
 	defer func() {
 		err := r.Body.Close()
 		if err != nil {
-			log.Printf("Error while closing request body: %v\n", err)
+			log.Printf("error closing request body: %v\n", err)
 		}
 	}()
 	resBody, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Printf("Error while reading request body: %v\n", err)
+		log.Printf("error reading request body: %v\n", err)
 		return
 	}
 
@@ -101,16 +104,18 @@ func (h *RequestHandler) handleJSONPost(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	userID := getUserID(r.Context())
+
 	w.Header().Set("Content-Type", "application/json")
 
-	hash, err := h.service.Save(value.URL)
+	hash, err := h.service.Save(value.URL, userID)
 	if errors.Is(err, exceptions.ErrURLAlreadyExist) {
 		w.WriteHeader(http.StatusConflict)
 	} else {
 		w.WriteHeader(http.StatusCreated)
 	}
 	if err != nil {
-		log.Printf("Error while saving original URL: %v\n", err)
+		log.Printf("error saving original URL: %v\n", err)
 	}
 
 	response := response{h.makeShortURL(hash)}
@@ -122,12 +127,17 @@ func (h *RequestHandler) handleJSONPost(w http.ResponseWriter, r *http.Request) 
 
 	_, err = w.Write(responseString)
 	if err != nil {
-		log.Printf("Error while writing response: %v\n", err)
+		log.Printf("error writing response: %v\n", err)
 	}
 }
 
 func (h *RequestHandler) handleBatch(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+	defer func() {
+		err := r.Body.Close()
+		if err != nil {
+			log.Printf("error closing request body: %v\n", err)
+		}
+	}()
 	resBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
@@ -140,9 +150,10 @@ func (h *RequestHandler) handleBatch(w http.ResponseWriter, r *http.Request) {
 
 	batchResponses := make([]BatchResponse, 0, len(batchRequests))
 
+	userID := getUserID(r.Context())
 	// TODO make it through batch SaveBatch
 	for i := range batchRequests {
-		hash, err := h.service.Save(batchRequests[i].OriginalURL)
+		hash, err := h.service.Save(batchRequests[i].OriginalURL, userID)
 		if err != nil {
 			log.Println("unexpected exceptions", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -161,11 +172,11 @@ func (h *RequestHandler) handleBatch(w http.ResponseWriter, r *http.Request) {
 
 	_, err = w.Write(responseString)
 	if err != nil {
-		log.Printf("Error while writing response: %v\n", err)
+		log.Printf("error writing response: %v\n", err)
 	}
 }
 
-func (h *RequestHandler) handlePing(w http.ResponseWriter, r *http.Request) {
+func (h *RequestHandler) handlePing(w http.ResponseWriter) {
 	if h.dbSource == nil {
 		log.Println("db ping error, db is not initialized")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -189,22 +200,22 @@ func (h *RequestHandler) makeShortURL(id string) string {
 func (h *RequestHandler) getUserUrls(w http.ResponseWriter, r *http.Request) {
 	userIDCookie, err := r.Cookie(util.UserIDCookieName)
 	if err != nil {
-		log.Println("Error while getting userID cookie:", err)
+		log.Println("error getting userID cookie:", err)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	userID, err2 := decodeID(userIDCookie.Value)
 	if err2 != nil {
-		log.Println("Error while decoding userID cookie:", err2)
+		log.Println("error decoding userID cookie:", err2)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	log.Println(strconv.Itoa(int(userID)) + " userID found")
 
-	pairs, err3 := h.service.GetAll()
+	pairs, err3 := h.service.GetAll(strconv.Itoa(int(userID)))
 
 	if err3 != nil {
-		log.Println("Error while getting data from storage:", err3)
+		log.Println("error getting data from storage:", err3)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -227,6 +238,11 @@ func (h *RequestHandler) getUserUrls(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func getUserID(ctx context.Context) string {
+	value := ctx.Value(UserIDContextKey)
+	return value.(string)
 }
 
 type request struct {

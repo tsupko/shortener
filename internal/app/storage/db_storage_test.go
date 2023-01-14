@@ -15,20 +15,23 @@ func TestDBStorage(t *testing.T) {
 
 	generatedHash1 := util.GenerateUniqueID()
 	url1 := "https://" + generatedHash1
-	savedHash1, err1 := storage.Save(generatedHash1, url1)
+	userID1 := "user1"
+	savedHash1, err1 := storage.Save(generatedHash1, url1, userID1)
 	assert.Nil(t, err1)
 	assert.Equal(t, generatedHash1, savedHash1)
 
-	// save new url with same hash
+	// save new URL with same hash
 	url2 := "https://" + util.GenerateUniqueID()
-	savedHash2, err2 := storage.Save(generatedHash1, url2)
+	userID2 := "user2"
+	savedHash2, err2 := storage.Save(generatedHash1, url2, userID2)
 	assert.NotNil(t, err2)
 	assert.Error(t, exceptions.ErrHashAlreadyExist, err2)
 	assert.Equal(t, generatedHash1, savedHash2)
 
-	// save same url with new hash
+	// save same URL with new hash
 	generatedHash3 := util.GenerateUniqueID()
-	savedHash3, err3 := storage.Save(generatedHash3, url1)
+	userID3 := "user3"
+	savedHash3, err3 := storage.Save(generatedHash3, url1, userID3)
 	assert.NotNil(t, err3)
 	assert.Error(t, exceptions.ErrURLAlreadyExist, err3)
 	assert.NotEqual(t, generatedHash1, generatedHash3)
@@ -38,7 +41,7 @@ func TestDBStorage(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, url1, savedURL1) // old value
 
-	data, err4 := storage.GetAll()
+	data, err4 := storage.GetAll(userID1)
 	assert.Nil(t, err4)
 	assert.GreaterOrEqual(t, len(data), 1)
 
@@ -53,10 +56,13 @@ func TestDBStorageSaveBatch(t *testing.T) {
 	hash2 := util.GenerateUniqueID()
 	url1 := "https://" + hash1
 	url2 := "https://" + hash2
+	userID1 := "user1"
+	userID2 := "user2"
 	hashes := []string{hash1, hash2}
 	urls := []string{url1, url2}
+	userIds := []string{userID1, userID2}
 
-	savedHashes, err := storage.SaveBatch(hashes, urls)
+	savedHashes, err := storage.SaveBatch(hashes, urls, userIds)
 	assert.Nil(t, err)
 	assert.Equal(t, hashes, savedHashes)
 

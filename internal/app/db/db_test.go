@@ -136,7 +136,7 @@ func initDBStorage(t *testing.T) *Source {
 	err = db.db.PingContext(ctx)
 
 	if err != nil {
-		log.Println("exceptions while ping DB:", err)
+		log.Println("exceptions ping DB:", err)
 		t.Skip("no db connection")
 	}
 	return db

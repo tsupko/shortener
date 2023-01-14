@@ -12,7 +12,6 @@ const (
 	alphabet         = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	alphabetLength   = len(alphabet)
 	shortURLLength   = 8
-	ServerAddress    = "http://localhost:8080"
 	UserIDCookieName = "userID"
 )
 
@@ -34,7 +33,7 @@ func ReadRequestBody(r *http.Request) (string, error) {
 	}()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Printf("Error while reading request body: %v\n", err)
+		log.Printf("error reading request body: %v\n", err)
 	}
 	return string(body), err
 }

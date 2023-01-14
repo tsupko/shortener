@@ -12,7 +12,7 @@ import (
 type FileStorage struct {
 	data            map[string]string
 	fileStoragePath string
-	producer        *producer
+	producer        *Producer
 	mtx             sync.RWMutex
 }
 
@@ -29,7 +29,7 @@ func NewFileStorage(fileStoragePath string) *FileStorage {
 	return &FileStorage{data: mapStore, fileStoragePath: fileStoragePath, producer: fileProducer}
 }
 
-func (s *FileStorage) Save(hash string, url string) (string, error) {
+func (s *FileStorage) Save(hash, url, _ string) (string, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	s.data[hash] = url
@@ -37,11 +37,11 @@ func (s *FileStorage) Save(hash string, url string) (string, error) {
 	return hash, nil
 }
 
-func (s *FileStorage) SaveBatch(hashes []string, urls []string) ([]string, error) {
+func (s *FileStorage) SaveBatch(hashes, urls, userIds []string) ([]string, error) {
 	values := make([]string, 0, len(hashes))
 
 	for i := range hashes {
-		save, err := s.Save(hashes[i], urls[i])
+		save, err := s.Save(hashes[i], urls[i], userIds[i])
 		if err != nil {
 			return values, err
 		}
@@ -50,17 +50,17 @@ func (s *FileStorage) SaveBatch(hashes []string, urls []string) ([]string, error
 	return values, nil
 }
 
-func (s *FileStorage) Get(hash string) (string, error) {
+func (s *FileStorage) Get(hash string) (User, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	value, ok := s.data[hash]
 	if ok {
-		return value, nil
+		return User{value, ""}, nil
 	}
-	return value, exceptions.ErrURLNotFound
+	return User{value, ""}, exceptions.ErrURLNotFound
 }
 
-func (s *FileStorage) GetAll() (map[string]string, error) {
+func (s *FileStorage) GetAll(string) (map[string]string, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	return s.data, nil

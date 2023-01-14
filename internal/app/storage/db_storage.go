@@ -18,7 +18,7 @@ func NewDBStorage(db *db.Source) *DBStorage {
 	return &DBStorage{dbSource: db}
 }
 
-func (s *DBStorage) Save(hash string, url string) (string, error) {
+func (s *DBStorage) Save(hash, url, _ string) (string, error) {
 	err := s.dbSource.Save(hash, url)
 	if err != nil {
 		if isHashUniqueViolation(err) {
@@ -27,7 +27,7 @@ func (s *DBStorage) Save(hash string, url string) (string, error) {
 		if isURLUniqueViolation(err) {
 			oldHash, err2 := s.dbSource.GetHashByURL(url)
 			if err2 != nil {
-				return "", err2 // somebody deleted url form db?
+				return "", err2 // somebody deleted URL form db?
 			}
 			return oldHash, exceptions.ErrURLAlreadyExist
 		}
@@ -44,7 +44,7 @@ func isURLUniqueViolation(err error) bool {
 	return strings.Contains(err.Error(), "urls_url_uindex")
 }
 
-func (s *DBStorage) SaveBatch(hashes []string, urls []string) ([]string, error) {
+func (s *DBStorage) SaveBatch(hashes, urls, _ []string) ([]string, error) {
 	// TODO there is no collision hashed check
 	err := s.dbSource.SaveBatch(hashes, urls)
 	if err != nil {
@@ -53,10 +53,11 @@ func (s *DBStorage) SaveBatch(hashes []string, urls []string) ([]string, error) 
 	return hashes, nil
 }
 
-func (s *DBStorage) Get(hash string) (string, error) {
-	return s.dbSource.Get(hash)
+func (s *DBStorage) Get(hash string) (User, error) {
+	url, err := s.dbSource.Get(hash)
+	return User{url, ""}, err
 }
 
-func (s *DBStorage) GetAll() (map[string]string, error) {
+func (s *DBStorage) GetAll(string) (map[string]string, error) {
 	return s.dbSource.GetAll()
 }

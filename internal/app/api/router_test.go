@@ -194,12 +194,12 @@ func unzip(original string) string {
 	reader := bytes.NewReader([]byte(original))
 	gzReader, err := gzip.NewReader(reader)
 	if err != nil {
-		log.Println("exceptions while unzip", err)
+		log.Println("exceptions unzip", err)
 		return ""
 	}
 	output, err := io.ReadAll(gzReader)
 	if err != nil {
-		log.Println("exceptions while unzip", err)
+		log.Println("exceptions unzip", err)
 		return ""
 	}
 	return string(output)

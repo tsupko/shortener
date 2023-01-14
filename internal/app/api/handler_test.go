@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -118,7 +119,7 @@ func TestHandlers(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			request := httptest.NewRequest(tt.request.method, tt.request.path, strings.NewReader(tt.request.body))
-
+			request = request.WithContext(context.WithValue(context.Background(), UserIDContextKey, "123456789"))
 			w := httptest.NewRecorder()
 			switch tt.request.method {
 			case http.MethodGet:
@@ -139,11 +140,11 @@ func TestHandlers(t *testing.T) {
 			assert.Equal(t, tt.want.headers.Get("Location"), result.Header.Get("Location"))
 			body, err := io.ReadAll(result.Body)
 			if err != nil {
-				t.Errorf("Error while reading response body: %v", err)
+				t.Errorf("error reading response body: %v", err)
 			}
 			err = result.Body.Close()
 			if err != nil {
-				t.Errorf("Error while closing response body: %v", err)
+				t.Errorf("error closing response body: %v", err)
 			}
 			assert.Equal(t, tt.want.body, string(body))
 		})
