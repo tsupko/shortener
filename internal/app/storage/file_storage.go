@@ -5,12 +5,14 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/tsupko/shortener/internal/app/exceptions"
 )
 
 type FileStorage struct {
 	data            map[string]string
 	fileStoragePath string
-	producer        *producer
+	producer        *Producer
 	mtx             sync.RWMutex
 }
 
@@ -22,24 +24,46 @@ func NewFileStorage(fileStoragePath string) *FileStorage {
 
 	fileProducer, err := NewProducer(fileStoragePath)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("can not create NewFileStorage", err)
 	}
 	return &FileStorage{data: mapStore, fileStoragePath: fileStoragePath, producer: fileProducer}
 }
 
-func (s *FileStorage) Put(hash string, url string) string {
+func (s *FileStorage) Save(hash, url, _ string) (string, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	s.data[hash] = url
 	s.writeToFile(hash, url)
-	return hash
+	return hash, nil
 }
 
-func (s *FileStorage) Get(hash string) (string, bool) {
+func (s *FileStorage) SaveBatch(hashes, urls, userIds []string) ([]string, error) {
+	values := make([]string, 0, len(hashes))
+
+	for i := range hashes {
+		save, err := s.Save(hashes[i], urls[i], userIds[i])
+		if err != nil {
+			return values, err
+		}
+		values = append(values, save)
+	}
+	return values, nil
+}
+
+func (s *FileStorage) Get(hash string) (User, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	value, ok := s.data[hash]
-	return value, ok
+	if ok {
+		return User{value, ""}, nil
+	}
+	return User{value, ""}, exceptions.ErrURLNotFound
+}
+
+func (s *FileStorage) GetAll(string) (map[string]string, error) {
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
+	return s.data, nil
 }
 
 func checkDirExistOrCreate(fileStoragePath string) {
@@ -48,9 +72,9 @@ func checkDirExistOrCreate(fileStoragePath string) {
 		return
 	}
 	if _, err := os.Stat(fileStoragePath); os.IsNotExist(err) {
-		err := os.MkdirAll(dir, 0700)
+		err := os.MkdirAll(dir, 0o700)
 		if err != nil {
-			log.Fatal(err)
+			log.Println("error accessing file system:", err)
 		}
 	}
 }
@@ -58,12 +82,12 @@ func checkDirExistOrCreate(fileStoragePath string) {
 func readFromFileIntoMap(fileStoragePath string) map[string]string {
 	consumer, err := NewConsumer(fileStoragePath)
 	if err != nil {
-		log.Printf("Error while reading file from disk: %v\n", err)
+		log.Println("error reading file from disk:", err)
 	}
 	defer consumer.Close()
 
 	mapStore := make(map[string]string)
-	for {
+	for i := 0; ; i++ {
 		record, err := consumer.ReadRecord()
 		if err != nil {
 			break
@@ -74,9 +98,9 @@ func readFromFileIntoMap(fileStoragePath string) map[string]string {
 }
 
 func (s *FileStorage) writeToFile(hash string, url string) {
-	record := record{hash, url}
+	record := Record{hash, url}
 	err := s.producer.WriteRecord(&record)
 	if err != nil {
-		log.Printf("Error while writing to file: %v\n", err)
+		log.Println("error writing to file:", err)
 	}
 }

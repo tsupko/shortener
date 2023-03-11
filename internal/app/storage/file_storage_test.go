@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"log"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,35 +9,39 @@ import (
 	"github.com/tsupko/shortener/internal/app/util"
 )
 
-const fileStoragePath = "file.log"
-
 func TestReadFromFileWhenCreated(t *testing.T) {
 	hash := util.GenerateUniqueID()
 
-	fileStorage := NewFileStorage(fileStoragePath)
-	fileStorage.writeToFile(hash, "url")
+	fileStorage := NewFileStorage("file.log")
+	fileStorage.writeToFile(hash, "URL")
 
 	url, _ := fileStorage.Get(hash)
-	assert.Equal(t, "", url)
+	assert.Equal(t, User{}, url)
 
-	anotherStorage := NewFileStorage(fileStoragePath)
+	anotherStorage := NewFileStorage("file.log")
 	url, _ = anotherStorage.Get(hash)
-	assert.Equal(t, "url", url)
+	assert.Equal(t, User{UserID: "URL"}, url)
 }
 
 func TestDoubleSave(t *testing.T) {
 	hash := util.GenerateUniqueID()
 
-	fileStorage := NewFileStorage(fileStoragePath)
-	fileStorage.Put(hash, "url")
-	fileStorage.Put(hash, "url2")
+	fileStorage := NewFileStorage("file.log")
+	_, err := fileStorage.Save(hash, "URL", "user1")
+	if err != nil {
+		log.Printf("error saving user data: %v", err)
+	}
+	_, err = fileStorage.Save(hash, "url2", "user2")
+	if err != nil {
+		log.Printf("error saving user data: %v", err)
+	}
 
 	url, _ := fileStorage.Get(hash)
-	assert.Equal(t, "url2", url)
+	assert.Equal(t, User{UserID: "url2"}, url)
 
-	anotherStorage := NewFileStorage(fileStoragePath)
+	anotherStorage := NewFileStorage("file.log")
 	url, _ = anotherStorage.Get(hash)
-	assert.Equal(t, "url2", url)
+	assert.Equal(t, User{UserID: "url2"}, url)
 }
 
 func Test(t *testing.T) {

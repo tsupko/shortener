@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tsupko/shortener/internal/app/service"
-	"github.com/tsupko/shortener/internal/app/storage"
-	"github.com/tsupko/shortener/internal/app/util"
 )
 
 func TestGetEmpty(t *testing.T) {
@@ -26,7 +24,7 @@ func TestGetEmpty(t *testing.T) {
 
 	assert.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
 	assert.Equal(t, "", resp.Header.Get("Location"))
-	assert.Equal(t, "", body)
+	assert.Equal(t, "redirect to ", body)
 	closeBody(t, resp)
 }
 
@@ -38,7 +36,7 @@ func TestGetPositive(t *testing.T) {
 
 	assert.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
 	assert.Equal(t, "https://ya.ru", resp.Header.Get("Location"))
-	assert.Equal(t, "", body)
+	assert.Equal(t, "redirect to https://ya.ru", body)
 	closeBody(t, resp)
 }
 
@@ -110,10 +108,39 @@ func TestContentEncodingGzip(t *testing.T) {
 	closeBody(t, resp)
 }
 
+func TestPingDb(t *testing.T) {
+	ts := getServer()
+	defer ts.Close()
+
+	resp, _ := testRequest(t, ts, "GET", "/ping", "")
+
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	closeBody(t, resp)
+}
+
 func getServer() *httptest.Server {
-	r := NewRouter(NewRequestHandler(service.NewShorteningService(storage.NewTestStorage()), util.ServerAddress))
+	r := NewRouter(NewRequestHandler(
+		service.NewMockShorteningService(),
+		"http://localhost:8080",
+		nil,
+	))
 	ts := httptest.NewServer(r)
 	return ts
+}
+
+func TestPostBatchApi(t *testing.T) {
+	ts := getServer()
+	defer ts.Close()
+
+	body := `[
+    {"correlation_id": "123","original_url": "https://ya.ru"},
+    {"correlation_id": "987","original_url": "https://bo.ru"}
+    ] `
+	resp, responseBody := testRequest(t, ts, "POST", "/api/shorten/batch", body)
+
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	assert.Equal(t, `[{"correlation_id":"123","short_url":"http://localhost:8080/12345"},{"correlation_id":"987","short_url":"http://localhost:8080/67890"}]`, responseBody)
+	closeBody(t, resp)
 }
 
 func testRequest(t *testing.T, ts *httptest.Server, method, path string, body string, headers ...string) (*http.Response, string) {
@@ -155,23 +182,25 @@ func zip(original string) string {
 	var b bytes.Buffer
 	gz := gzip.NewWriter(&b)
 	if _, err := gz.Write([]byte(original)); err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	if err := gz.Close(); err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	return b.String()
 }
 
 func unzip(original string) string {
 	reader := bytes.NewReader([]byte(original))
-	gzReader, e := gzip.NewReader(reader)
-	if e != nil {
-		log.Fatal(e)
+	gzReader, err := gzip.NewReader(reader)
+	if err != nil {
+		log.Println("exceptions unzip", err)
+		return ""
 	}
-	output, e := io.ReadAll(gzReader)
-	if e != nil {
-		log.Fatal(e)
+	output, err := io.ReadAll(gzReader)
+	if err != nil {
+		log.Println("exceptions unzip", err)
+		return ""
 	}
 	return string(output)
 }

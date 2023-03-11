@@ -2,10 +2,19 @@ package api
 
 import (
 	"compress/gzip"
+	"context"
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
+)
+
+type contextKey string
+
+const (
+	UserIDContextKey contextKey = "user-id"
 )
 
 var _ http.ResponseWriter = gzipWriter{}
@@ -38,7 +47,7 @@ func gzipResponseHandle(next http.Handler) http.Handler {
 		defer func(gz *gzip.Writer) {
 			err := gz.Close()
 			if err != nil {
-				log.Printf("Error while closing writer: %v\n", err)
+				log.Printf("error closing writer: %v\n", err)
 			}
 		}(gz)
 
@@ -78,10 +87,23 @@ func gzipRequestHandle(next http.Handler) http.Handler {
 		defer func(gz *gzip.Reader) {
 			err := gz.Close()
 			if err != nil {
-				log.Printf("Error while closing reader: %v\n", err)
+				log.Printf("error closing reader: %v\n", err)
 			}
 		}(gz)
 		r.Body = gzipRequestBody{ReadCloser: gz}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func checkIfExistsCookieAndGenerateIfNot(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("my-cookie")
+		if err != nil {
+			cookie = &http.Cookie{Name: "my-cookie", Value: strconv.FormatInt(time.Now().Unix(), 10)}
+			http.SetCookie(w, cookie)
+		}
+		ctx := context.WithValue(r.Context(), UserIDContextKey, cookie.Value)
+		r = r.WithContext(ctx)
 		next.ServeHTTP(w, r)
 	})
 }

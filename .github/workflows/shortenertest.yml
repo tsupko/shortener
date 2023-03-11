@@ -8,9 +8,18 @@ on:
 
 jobs:
 
+  branchtest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check branch name
+        run: |
+          if [[ ! $GITHUB_HEAD_REF =~ ^sprint[0-9]+$ ]]; then echo "Branch name must match pattern 'sprint<number>'" && exit 1; fi
+
   shortenertest:
     runs-on: ubuntu-latest
     container: golang:1.18
+    needs: branchtest
 
     services:
       postgres:
@@ -31,7 +40,7 @@ jobs:
       - name: Download autotests binaries
         uses: robinraju/release-downloader@v1.2
         with:
-          repository: Yandex-Practicum/go-autotests-bin
+          repository: Yandex-Practicum/go-autotests
           latest: true
           fileName: "*"
           out-file-path: .tools
@@ -48,30 +57,53 @@ jobs:
           go build -o shortener
 
       - name: "Code increment #1"
-        if: always()
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint1' ||
+          github.head_ref == 'sprint2' ||
+          github.head_ref == 'sprint3' ||
+          github.head_ref == 'sprint4'
         run: |
           shortenertest -test.v -test.run=^TestIteration1$ \
               -binary-path=cmd/shortener/shortener
 
       - name: "Code increment #2"
-        if: always()
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint1' ||
+          github.head_ref == 'sprint2' ||
+          github.head_ref == 'sprint3' ||
+          github.head_ref == 'sprint4'
         run: |
           shortenertest -test.v -test.run=^TestIteration2$ -source-path=.
 
       - name: "Code increment #3"
-        if: always()
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint1' ||
+          github.head_ref == 'sprint2' ||
+          github.head_ref == 'sprint3' ||
+          github.head_ref == 'sprint4'
         run: |
           shortenertest -test.v -test.run=^TestIteration3$ -source-path=.
 
       - name: "Code increment #4"
-        if: always()
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint2' ||
+          github.head_ref == 'sprint3' ||
+          github.head_ref == 'sprint4'
         run: |
           shortenertest -test.v -test.run=^TestIteration4$ \
               -source-path=. \
               -binary-path=cmd/shortener/shortener
 
       - name: "Code increment #5"
-        if: always()
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint2' ||
+          github.head_ref == 'sprint3' ||
+          github.head_ref == 'sprint4'
         run: |
           SERVER_HOST=$(random domain)
           SERVER_PORT=$(random unused-port)
@@ -82,7 +114,11 @@ jobs:
               -server-base-url="http://$SERVER_HOST:$SERVER_PORT"
 
       - name: "Code increment #6"
-        if: always()
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint2' ||
+          github.head_ref == 'sprint3' ||
+          github.head_ref == 'sprint4'
         run: |
           SERVER_PORT=$(random unused-port)
           TEMP_FILE=$(random tempfile)
@@ -93,7 +129,11 @@ jobs:
               -source-path=.
 
       - name: "Code increment #7"
-        if: always()
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint2' ||
+          github.head_ref == 'sprint3' ||
+          github.head_ref == 'sprint4'
         run: |
           SERVER_PORT=$(random unused-port)
           TEMP_FILE=$(random tempfile)
@@ -104,21 +144,31 @@ jobs:
               -source-path=.
 
       - name: "Code increment #8"
-        if: always()
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint2' ||
+          github.head_ref == 'sprint3' ||
+          github.head_ref == 'sprint4'
         run: |
           shortenertest -test.v -test.run=^TestIteration8$ \
               -source-path=. \
               -binary-path=cmd/shortener/shortener
 
       - name: "Code increment #9"
-        if: always()
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint3' ||
+          github.head_ref == 'sprint4'
         run: |
           shortenertest -test.v -test.run=^TestIteration9$ \
               -source-path=. \
               -binary-path=cmd/shortener/shortener
 
       - name: "Code increment #10"
-        if: always()
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint3' ||
+          github.head_ref == 'sprint4'
         run: |
           shortenertest -test.v -test.run=^TestIteration10$ \
               -source-path=. \
@@ -126,29 +176,111 @@ jobs:
               -database-dsn='postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable'
 
       - name: "Code increment #11"
-        if: always()
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint3' ||
+          github.head_ref == 'sprint4'
         run: |
           shortenertest -test.v -test.run=^TestIteration11$ \
               -binary-path=cmd/shortener/shortener \
               -database-dsn='postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable'
 
       - name: "Code increment #12"
-        if: always()
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint3' ||
+          github.head_ref == 'sprint4'
         run: |
           shortenertest -test.v -test.run=^TestIteration12$ \
               -binary-path=cmd/shortener/shortener \
               -database-dsn='postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable'
 
       - name: "Code increment #13"
-        if: always()
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint3' ||
+          github.head_ref == 'sprint4'
         run: |
           shortenertest -test.v -test.run=^TestIteration13$ \
               -binary-path=cmd/shortener/shortener \
               -database-dsn='postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable'
 
       - name: "Code increment #14"
-        if: always()
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint4'
         run: |
           shortenertest -test.v -test.run=^TestIteration14$ \
               -binary-path=cmd/shortener/shortener \
               -database-dsn='postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable'
+
+      - name: "Code increment #14 (degradation)"
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint4'
+        run: |
+          shortenertest -test.v -test.run=^TestIteration14$ \
+              -binary-path=cmd/shortener/shortener
+
+      - name: "Code increment #14 (race detection)"
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint4'
+        run: |
+          go test -v -race ./...
+
+      - name: "Code increment #15"
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint4'
+        run: |
+          shortenertest -test.v -test.run=^TestIteration15$ -source-path=.
+
+      - name: "Code increment #16"
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint4'
+        run: |
+          shortenertest -test.v -test.run=^TestIteration16$ -source-path=.
+
+      - name: "Code increment #17"
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.head_ref == 'sprint4'
+        run: |
+          shortenertest -test.v -test.run=^TestIteration17$ -source-path=.
+
+      - name: "Code increment #18"
+        if: github.repository == ''
+        run: |
+          echo "Not implemented"
+
+      - name: "Code increment #19"
+        if: github.repository == ''
+        run: |
+          echo "Not implemented"
+
+      - name: "Code increment #20"
+        if: github.repository == ''
+        run: |
+          echo "Not implemented"
+
+      - name: "Code increment #21"
+        if: github.repository == ''
+        run: |
+          echo "Not implemented"
+
+      - name: "Code increment #22"
+        if: github.repository == ''
+        run: |
+          echo "Not implemented"
+
+      - name: "Code increment #23"
+        if: github.repository == ''
+        run: |
+          echo "Not implemented"
+
+      - name: "Code increment #24"
+        if: github.repository == ''
+        run: |
+          echo "Not implemented"
